@@ -1,0 +1,139 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="scratchings">
+    <h1>Scratched Horses</h1>
+    <p class="subtitle">Horses withdrawn from races</p>
+    
+    {% if scratched_entries %}
+    <div class="scratch-summary">
+        <span><strong>Total Scratchings:</strong> {{ scratched_entries|length }}</span>
+        <span><strong>Scratched Score Average:</strong> {{ '{:.1f}'.format(scratched_entries|map(attribute='current_score')|sum / scratched_entries|length) }}</span>
+    </div>
+    
+    <table class="scratching-table">
+        <thead>
+            <tr>
+                <th>Horse</th>
+                <th>Score</th>
+                <th>Arrow</th>
+                <th>Trainer / Jockey</th>
+                <th>Race</th>
+                <th>Barrier</th>
+                <th>TAB Odds</th>
+                <th>Scratched At</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in scratched_entries %}
+            <tr class="scratch-row">
+                <td><strong>{{ entry.horse.name if entry.horse else 'Unknown' }}</strong></td>
+                <td>
+                    <span class="score-badge score-{{ 'high' if entry.current_score >= 20 else 'low' if entry.current_score < 5 else 'medium' }}">
+                        {{ entry.current_score }}
+                    </span>
+                </td>
+                <td>{{ entry.arrow or '➡️' }}</td>
+                <td>{{ entry.trainer.name if entry.trainer else '—' }} / {{ entry.jockey.name if entry.jockey else '—' }}</td>
+                <td>
+                    <strong>{{ entry.race.race_name if entry.race else '—' }}</strong><br>
+                    <small>{{ entry.race.race_category or '' }}</small>
+                </td>
+                <td>
+                    {% if entry.barrier %}
+                        Barrier {{ entry.barrier }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td>
+                    {% if entry.tab_odds %}
+                        <span class="odds-tag">${{ '{:.2f}'.format(entry.tab_odds) }}</span>
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td>
+                    {% if entry.scratched_at %}
+                        {{ entry.scratched_at.strftime('%d %b %H:%M') }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td>
+                    {% if entry.barrier_behavior %}{{ entry.barrier_behavior }}{% endif %}
+                    {% if entry.market_swing %}<br>Swing: ${{ '{:.2f}'.format(entry.market_swing) }}{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No scratched horses at the moment.</p>
+        <p><a href="{{ url_for('main.index') }}">Back to Dashboard</a></p>
+    </div>
+    {% endif %}
+</section>
+
+<style>
+.scratch-summary {
+    display: flex;
+    gap: 2rem;
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: #111827;
+    border-radius: 0.75rem;
+    border-left: 4px solid #dc2626;
+}
+.scratch-row {
+    background: rgba(220, 38, 38, 0.08);
+}
+.scratch-row:hover {
+    background: rgba(220, 38, 38, 0.15);
+}
+.score-badge {
+    padding: 0.3rem 0.6rem;
+    border-radius: 0.5rem;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+.score-badge.score-high {
+    background: rgba(22, 163, 74, 0.3);
+    color: #86efac;
+}
+.score-badge.score-low {
+    background: rgba(220, 38, 38, 0.3);
+    color: #fca5a5;
+}
+.score-badge.score-medium {
+    background: rgba(59, 130, 246, 0.3);
+    color: #93c5fd;
+}
+.odds-tag {
+    background: #334155;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.4rem;
+    font-size: 0.85rem;
+    font-weight: bold;
+}
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    background: #111827;
+    border-radius: 0.75rem;
+}
+.empty-state p {
+    margin: 1rem 0;
+    color: #cbd5e1;
+}
+.empty-state a {
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 500;
+}
+.empty-state a:hover {
+    text-decoration: underline;
+}
+</style>
+{% endblock %}
