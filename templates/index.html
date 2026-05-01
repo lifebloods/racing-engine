@@ -1,0 +1,87 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="dashboard">
+    <h1>Upcoming Ratings</h1>
+    <div class="info-bar">
+        <span>Base score: 10</span>
+        <span>Lethal play: 20+</span>
+        <span>Danger: &lt; 5 or ⬇️</span>
+        <span style="margin-left: auto;">🔄 Live TAB Odds Active</span>
+    </div>
+    
+    {% if categories %}
+    <div class="filter-bar">
+        <label>Filter by Category:</label>
+        <select id="categoryFilter">
+            <option value="">All Categories</option>
+            {% for category in categories %}
+            <option value="{{ category }}">{{ category }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Score</th>
+                <th>Arrow</th>
+                <th>Runner</th>
+                <th>Trainer / Jockey</th>
+                <th>Race</th>
+                <th>Category</th>
+                <th>TAB Odds</th>
+                <th>Market Odds</th>
+                <th>Status</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in entries %}
+            <tr class="score-{{ 'high' if entry.current_score >= 20 else 'low' if entry.current_score < 5 else 'medium' }} {% if entry.is_scratched %}scratched{% endif %}" data-category="{{ entry.race.race_category or '' }}">
+                <td><strong>{{ entry.current_score }}</strong></td>
+                <td>{{ entry.arrow or '➡️' }}</td>
+                <td>{{ entry.horse.name if entry.horse else 'Unknown' }}</td>
+                <td>{{ entry.trainer.name if entry.trainer else '—' }} / {{ entry.jockey.name if entry.jockey else '—' }}</td>
+                <td>{{ entry.race.race_name if entry.race else '—' }}</td>
+                <td>{{ entry.race.race_category or '—' }}</td>
+                <td class="tab-odds">
+                    {% if entry.tab_odds %}
+                        <span class="odds-tab">${{ '{:.2f}'.format(entry.tab_odds) }}</span>
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td>{{ '{:.2f}'.format(entry.current_odds) if entry.current_odds else '—' }}</td>
+                <td>
+                    {% if entry.is_scratched %}
+                        <span class="scratch-badge">SCRATCHED</span>
+                    {% else %}
+                        <span class="active-badge">Active</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if entry.barrier_behavior %}{{ entry.barrier_behavior }}{% endif %}
+                    {% if entry.market_swing %}📈 Swing: ${{ '{:.2f}'.format(entry.market_swing) }}{% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="10">No race entries available. Run Refresh to populate.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+<script>
+document.getElementById('categoryFilter')?.addEventListener('change', function(e) {
+    const selected = e.target.value;
+    document.querySelectorAll('tbody tr').forEach(row => {
+        if (!selected || row.dataset.category === selected) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %}
