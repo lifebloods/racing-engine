@@ -1,0 +1,187 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="bonus-bets">
+    <h1>Bonus Bets Tracker</h1>
+    <p class="subtitle">Track multi-bets, parlays, and complex betting combinations</p>
+    
+    <div class="bet-form">
+        <h2>Create Bonus Bet</h2>
+        <form method="POST">
+            <div>
+                <label for="bet_name">Bet Name</label>
+                <input type="text" name="bet_name" id="bet_name" placeholder="e.g., Tuesday Multi at Rosehill" required>
+            </div>
+            <div>
+                <label for="description">Description (Optional)</label>
+                <textarea name="description" id="description" placeholder="Add notes about this bet"></textarea>
+            </div>
+            <div class="form-row">
+                <div>
+                    <label for="bet_type">Bet Type</label>
+                    <select name="bet_type" id="bet_type" required>
+                        <option value="">Select type</option>
+                        <option value="Multi">Multi (All selections must win)</option>
+                        <option value="Parlay">Parlay</option>
+                        <option value="Unit Multi">Unit Multi</option>
+                        <option value="Trix">Trix (3 consecutive races)</option>
+                        <option value="Super 6">Super 6</option>
+                        <option value="Custom">Custom Combination</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="stake">Total Stake</label>
+                    <input type="number" step="0.5" name="stake" id="stake" required>
+                </div>
+                <div>
+                    <label for="odds">Combined Odds</label>
+                    <input type="number" step="0.01" name="odds" id="odds" placeholder="Total combined odds" required>
+                </div>
+            </div>
+            <div>
+                <label>Select Runners (Hold Ctrl/Cmd to multi-select)</label>
+                <select name="selection_ids" id="selection_ids" multiple required size="8">
+                    <optgroup label="High Scores (20+)">
+                        {% for entry in entries %}
+                            {% if entry.current_score >= 20 %}
+                            <option value="{{ entry.id }}" data-score="{{ entry.current_score }}">
+                                ⭐ {{ entry.horse.name }} (Score: {{ entry.current_score }}) @ ${{ '{:.2f}'.format(entry.tab_odds or entry.current_odds or 0) }}
+                            </option>
+                            {% endif %}
+                        {% endfor %}
+                    </optgroup>
+                    <optgroup label="Medium Scores (15-19)">
+                        {% for entry in entries %}
+                            {% if 15 <= entry.current_score < 20 %}
+                            <option value="{{ entry.id }}" data-score="{{ entry.current_score }}">
+                                {{ entry.horse.name }} (Score: {{ entry.current_score }}) @ ${{ '{:.2f}'.format(entry.tab_odds or entry.current_odds or 0) }}
+                            </option>
+                            {% endif %}
+                        {% endfor %}
+                    </optgroup>
+                    <optgroup label="Other Runners">
+                        {% for entry in entries %}
+                            {% if entry.current_score < 15 %}
+                            <option value="{{ entry.id }}" data-score="{{ entry.current_score }}">
+                                {{ entry.horse.name }} (Score: {{ entry.current_score }}) @ ${{ '{:.2f}'.format(entry.tab_odds or entry.current_odds or 0) }}
+                            </option>
+                            {% endif %}
+                        {% endfor %}
+                    </optgroup>
+                </select>
+                <small>Selected: <span id="selectedCount">0</span> runners</small>
+            </div>
+            <button type="submit">Save Bonus Bet</button>
+        </form>
+    </div>
+    
+    <div class="bonus-bet-list">
+        <h2>Tracked Bonus Bets</h2>
+        <div class="bet-summary">
+            <span><strong>Total Stake:</strong> ${{ '{:.2f}'.format(total_stake) }}</span>
+            <span><strong>Total P/L:</strong> <span style="color: {% if total_profit >= 0 %}#16a34a{% else %}#dc2626{% endif %};">${{ '{:.2f}'.format(total_profit) }}</span></span>
+            <span><strong>Unsettled:</strong> {{ unsettled_count }}</span>
+        </div>
+        
+        <table class="bonus-bets-table">
+            <thead>
+                <tr><th>Bet Name</th><th>Type</th><th>Stake</th><th>Odds</th><th>Result</th><th>P/L</th><th>Status</th><th>Placed</th><th>Action</th></tr>
+            </thead>
+            <tbody>
+                {% for bonus_bet in bonus_bets %}
+                <tr class="bonus-row-{{ 'won' if bonus_bet.result == 'Won' else 'partial' if 'Part' in (bonus_bet.result or '') else 'lost' if bonus_bet.result == 'Lost' else 'unsettled' }}">
+                    <td>
+                        <strong>{{ bonus_bet.bet_name }}</strong>
+                        {% if bonus_bet.description %}<br><small>{{ bonus_bet.description }}</small>{% endif %}
+                    </td>
+                    <td>{{ bonus_bet.bet_type }}</td>
+                    <td>${{ '{:.2f}'.format(bonus_bet.stake) }}</td>
+                    <td>{{ '{:.2f}'.format(bonus_bet.odds_combined) }}</td>
+                    <td>{{ bonus_bet.result or '—' }}</td>
+                    <td style="color: {% if bonus_bet.profit_loss and bonus_bet.profit_loss >= 0 %}#16a34a{% elif bonus_bet.profit_loss %}#dc2626{% else %}inherit{% endif %}; font-weight: bold;">
+                        {% if bonus_bet.profit_loss is not none %}
+                            ${{ '{:.2f}'.format(bonus_bet.profit_loss) }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if bonus_bet.result %}
+                            <span class="status-badge">{{ bonus_bet.result }}</span>
+                        {% else %}
+                            <span class="status-badge unsettled">Unsettled</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ bonus_bet.placed_at.strftime('%d %b %H:%M') }}</td>
+                    <td>
+                        <form action="{{ url_for('main.update_bonus_bet', bonus_bet_id=bonus_bet.id) }}" method="post" class="inline-update">
+                            <select name="result">
+                                <option value="" {% if not bonus_bet.result %}selected{% endif %}>—</option>
+                                <option value="Won" {% if bonus_bet.result == 'Won' %}selected{% endif %}>Won</option>
+                                <option value="Part Win" {% if bonus_bet.result == 'Part Win' %}selected{% endif %}>Part Win</option>
+                                <option value="Lost" {% if bonus_bet.result == 'Lost' %}selected{% endif %}>Lost</option>
+                                <option value="Void" {% if bonus_bet.result == 'Void' %}selected{% endif %}>Void</option>
+                            </select>
+                            <input type="number" step="0.01" name="profit_loss" value="{{ bonus_bet.profit_loss if bonus_bet.profit_loss is not none else '' }}" placeholder="P/L">
+                            <button type="submit">Update</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9">No bonus bets logged yet. Create one above!</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<style>
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+}
+textarea {
+    width: 100%;
+    padding: 0.8rem;
+    border: 1px solid #334155;
+    border-radius: 0.75rem;
+    background: #020617;
+    color: #e2e8f0;
+    min-height: 60px;
+    font-family: inherit;
+}
+select[multiple] {
+    width: 100%;
+    min-height: 200px;
+    background: #020617;
+    color: #e2e8f0;
+}
+.bonus-row-won {
+    background: rgba(22, 163, 74, 0.15);
+}
+.bonus-row-lost {
+    background: rgba(220, 38, 38, 0.12);
+}
+.bonus-row-partial {
+    background: rgba(217, 119, 6, 0.12);
+}
+.bonus-row-unsettled {
+    background: rgba(59, 130, 246, 0.08);
+}
+.status-badge {
+    padding: 0.3rem 0.6rem;
+    border-radius: 0.5rem;
+    background: #334155;
+    font-size: 0.85rem;
+}
+.status-badge.unsettled {
+    background: #0369a1;
+}
+</style>
+
+<script>
+document.getElementById('selection_ids')?.addEventListener('change', function(e) {
+    document.getElementById('selectedCount').textContent = Array.from(e.target.selectedOptions).length;
+});
+</script>
+{% endblock %}
